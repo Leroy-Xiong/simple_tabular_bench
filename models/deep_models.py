@@ -66,8 +66,12 @@ class MLP:
         self.early_stopping_patience = early_stopping_patience
         
         self.device = device if device else ('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"  MLP using device: {self.device}")
+        if self.device == 'cuda':
+            print(f"    GPU: {torch.cuda.get_device_name(0)}")
         self.model = None
-        self.scaler = StandardScaler()
+        self.scaler_X = StandardScaler()
+        self.scaler_y = StandardScaler() if not self.is_classifier else None
         self.classes_ = None
         
     def _prepare_data(self, X: pd.DataFrame, y: pd.Series = None, fit: bool = False):
@@ -82,16 +86,21 @@ class MLP:
         X_numeric = X_processed.select_dtypes(include=[np.number]).values
         
         if fit:
-            X_scaled = self.scaler.fit_transform(X_numeric)
+            X_scaled = self.scaler_X.fit_transform(X_numeric)
         else:
-            X_scaled = self.scaler.transform(X_numeric)
+            X_scaled = self.scaler_X.transform(X_numeric)
         
         if y is not None:
+            y_array = y.values if isinstance(y, pd.Series) else y
             if self.is_classifier:
-                y_array = y.values if isinstance(y, pd.Series) else y
+                return torch.FloatTensor(X_scaled), torch.LongTensor(y_array)
             else:
-                y_array = y.values if isinstance(y, pd.Series) else y
-            return torch.FloatTensor(X_scaled), torch.LongTensor(y_array) if self.is_classifier else torch.FloatTensor(y_array)
+                # For regression, also scale y
+                if fit:
+                    y_scaled = self.scaler_y.fit_transform(y_array.reshape(-1, 1)).flatten()
+                else:
+                    y_scaled = self.scaler_y.transform(y_array.reshape(-1, 1)).flatten()
+                return torch.FloatTensor(X_scaled), torch.FloatTensor(y_scaled)
         
         return torch.FloatTensor(X_scaled)
     
@@ -203,6 +212,8 @@ class MLP:
                 predictions = torch.argmax(outputs, dim=1).cpu().numpy()
             else:
                 predictions = outputs.squeeze().cpu().numpy()
+                # Inverse transform for regression
+                predictions = self.scaler_y.inverse_transform(predictions.reshape(-1, 1)).flatten()
         
         return predictions
     
@@ -247,7 +258,7 @@ class TabNetModel:
     """
     
     def __init__(self, task_type: str = 'classification',
-                 n_d: int = 8, n_a: int = 8, n_steps: int = 3,
+                 n_d: int = 4, n_a: int = 4, n_steps: int = 2,
                  gamma: float = 1.3, lambda_sparse: float = 1e-4,
                  max_epochs: int = 100, patience: int = 10,
                  batch_size: int = 256):
@@ -266,6 +277,13 @@ class TabNetModel:
         self.model = None
         self.scaler = StandardScaler()
         self.classes_ = None
+        
+        # Check GPU availability for TabNet
+        import torch
+        self.tabnet_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"  TabNet will use device: {self.tabnet_device}")
+        if self.tabnet_device == 'cuda':
+            print(f"    GPU: {torch.cuda.get_device_name(0)}")
     
     def _prepare_data(self, X: pd.DataFrame, y: pd.Series = None, fit: bool = False):
         """Prepare data for TabNet."""
@@ -314,6 +332,13 @@ class TabNetModel:
             X_train_processed = X_train_processed[:-val_size]
             y_train_processed = y_train_processed[:-val_size]
         
+        # Dynamically adjust batch_size based on dataset size
+        # For small datasets, use smaller batch_size to ensure enough batches per epoch
+        n_samples = len(X_train_processed)
+        adjusted_batch_size = min(self.batch_size, max(16, n_samples // 4))
+        if adjusted_batch_size != self.batch_size:
+            print(f"  Adjusting batch_size from {self.batch_size} to {adjusted_batch_size} for {n_samples} samples")
+        
         # Create model
         if self.is_classifier:
             self.model = TabNetClassifier(
@@ -332,7 +357,7 @@ class TabNetModel:
                 eval_set=[(X_val_processed, y_val_processed)],
                 max_epochs=self.max_epochs,
                 patience=self.patience,
-                batch_size=self.batch_size
+                batch_size=adjusted_batch_size
             )
         else:
             self.model = TabNetRegressor(
@@ -351,7 +376,7 @@ class TabNetModel:
                 eval_set=[(X_val_processed, y_val_processed.reshape(-1, 1))],
                 max_epochs=self.max_epochs,
                 patience=self.patience,
-                batch_size=self.batch_size
+                batch_size=adjusted_batch_size
             )
         
         return self

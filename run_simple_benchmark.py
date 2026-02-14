@@ -7,13 +7,17 @@ from benchmark import Benchmark
 import json
 
 
-# Define 3 datasets to benchmark
+# Define datasets to benchmark
 # Each dataset is defined by either name or (suite_id, task_id)
 # Using well-known OpenML datasets from the paper's benchmark
 DATASETS = [
+    # Classification datasets
     {'name': 'credit-g', 'description': 'German Credit (Classification)'},
     {'name': 'diabetes', 'description': 'Pima Indians Diabetes (Classification)'},
-    {'suite_id': 337, 'task_id': None, 'description': 'Credit Default (Classification)'}
+    {'suite_id': 337, 'task_id': None, 'description': 'Credit Default (Classification)'},
+    # Regression datasets
+    {'name': 'boston', 'description': 'Boston Housing (Regression)'},
+    {'name': 'fried', 'description': 'Friedman (Regression)'}
 ]
 
 

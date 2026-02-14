@@ -5,14 +5,16 @@ Reproduction of experiments from "Why do tree-based models still outperform deep
 ## Quick Start
 
 ```bash
-# Create conda environment
-conda create -n tabular_benchmark python=3.10 -y
+# Create conda environment from environment.yml
+conda env create -f environment.yml
+
+# Activate environment
 conda activate tabular_benchmark
 
-# Install dependencies
-pip install -r requirements.txt
+# Verify GPU support (optional)
+python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
 
-# Run benchmark on 3 datasets
+# Run benchmark on all datasets
 python run_simple_benchmark.py
 
 # Generate visualizations
