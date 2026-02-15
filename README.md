@@ -4,16 +4,26 @@ Reproduction of experiments from ["Why do tree-based models still outperform dee
 
 ## Quick Start
 
+### 1. Create and Activate Conda Environment
+
 ```bash
-# Create conda environment from environment.yml
-conda env create -f environment.yml
-
-# Activate environment
+conda create -n tabular_benchmark python=3.13
 conda activate tabular_benchmark
+```
 
-# Verify GPU support (optional)
-python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+### 2. Install PyTorch
 
+Visit [PyTorch Official Website](https://pytorch.org/get-started/locally/) to select the appropriate version for your CUDA version.
+
+### 3. Install Other Dependencies
+
+```bash
+pip install numpy pandas scikit-learn matplotlib seaborn tqdm xgboost lightgbm pytorch-tabnet openml
+```
+
+### 4. Run Benchmark
+
+```bash
 # Run benchmark on all datasets
 python run_simple_benchmark.py
 
